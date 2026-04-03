@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
+
+# Model & data files (large binaries — store in S3/DVC)
+*.pkl
+*.csv
+*.parquet
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Docker
+.docker/
