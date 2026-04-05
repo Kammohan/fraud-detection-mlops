@@ -36,6 +36,24 @@ services:
     networks:
       - kafka-net
 
+  producer:
+    build: ./producer
+    container_name: producer
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPIC: live-transactions
+      RATE_PER_SEC: 50
+      CSV_PATH: /app/data/creditcard.csv
+      LOG_INTERVAL: 500
+    volumes:
+      - ./data:/app/data:ro
+    networks:
+      - kafka-net
+    restart: on-failure
+
 networks:
   kafka-net:
     driver: bridge
