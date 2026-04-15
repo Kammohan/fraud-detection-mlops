@@ -20,3 +20,6 @@ venv/
 
 # Docker
 .docker/
+
+# Claude Code
+.claude/
