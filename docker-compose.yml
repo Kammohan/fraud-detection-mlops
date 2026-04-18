@@ -36,6 +36,50 @@ services:
     networks:
       - kafka-net
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_DB: fraud
+      POSTGRES_USER: fraud
+      POSTGRES_PASSWORD: fraud
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fraud"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  inference:
+    build: ./inference
+    container_name: inference
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPIC: live-transactions
+      KAFKA_GROUP_ID: inference-engine
+      MODEL_PATH: /app/model.pkl
+      FRAUD_THRESHOLD: 0.85
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: fraud
+      POSTGRES_USER: fraud
+      POSTGRES_PASSWORD: fraud
+    volumes:
+      - ./model.pkl:/app/model.pkl:ro
+    networks:
+      - kafka-net
+    restart: on-failure
+
   producer:
     build: ./producer
     container_name: producer
@@ -57,3 +101,6 @@ services:
 networks:
   kafka-net:
     driver: bridge
+
+volumes:
+  postgres-data:
