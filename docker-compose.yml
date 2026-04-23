@@ -80,6 +80,18 @@ services:
       - kafka-net
     restart: on-failure
 
+  dashboard:
+    build: ./dashboard
+    container_name: dashboard
+    depends_on:
+      - inference
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://localhost:8000
+    networks:
+      - kafka-net
+
   producer:
     build: ./producer
     container_name: producer
