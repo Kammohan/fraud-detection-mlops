@@ -21,5 +21,8 @@ venv/
 # Docker
 .docker/
 
+# Node
+node_modules/
+
 # Claude Code
 .claude/
