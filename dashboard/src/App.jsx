@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -54,6 +55,7 @@ function AlertRow({ alert }) {
 }
 
 export default function App() {
+  const navigate = useNavigate()
   const [metrics, setMetrics]         = useState(null)
   const [transactions, setTransactions] = useState([])
   const [alerts, setAlerts]           = useState([])
@@ -90,6 +92,9 @@ export default function App() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
+          <button onClick={() => navigate('/')} className="text-xs text-slate-500 hover:text-slate-300 transition-colors mb-1 flex items-center gap-1">
+            ← Back to overview
+          </button>
           <h1 className="text-2xl font-bold text-white tracking-tight">Fraud Detection</h1>
           <p className="text-slate-400 text-sm mt-0.5">Real-time XGBoost inference pipeline</p>
         </div>
