@@ -142,10 +142,20 @@ def health():
 
 @app.get("/metrics")
 def metrics():
-    with stats_lock:
-        processed = stats["processed"]
-        flagged   = stats["flagged"]
-        avg_score = stats["total_score"] / processed if processed else 0.0
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT
+                COUNT(*)                            AS total_processed,
+                SUM(flagged::int)                   AS total_flagged,
+                COALESCE(AVG(fraud_score), 0)       AS avg_fraud_score
+            FROM transactions
+        """)
+        row = cur.fetchone()
+    conn.close()
+    processed = int(row[0])
+    flagged   = int(row[1]) if row[1] else 0
+    avg_score = float(row[2])
     return {
         "total_processed": processed,
         "total_flagged":   flagged,
@@ -167,6 +177,43 @@ def recent_transactions(limit: int = 50):
         rows = cur.fetchall()
     conn.close()
     return {"transactions": [dict(r) for r in rows]}
+
+@app.get("/metrics/history")
+def metrics_history():
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT
+                to_char(date_trunc('minute', created_at), 'HH24:MI') AS minute,
+                COUNT(*)                  AS count,
+                SUM(flagged::int)         AS flagged
+            FROM transactions
+            WHERE created_at > NOW() - INTERVAL '20 minutes'
+            GROUP BY date_trunc('minute', created_at), minute
+            ORDER BY date_trunc('minute', created_at)
+        """)
+        rows = cur.fetchall()
+    conn.close()
+    return {"history": [{"minute": r[0], "count": int(r[1]), "flagged": int(r[2])} for r in rows]}
+
+@app.get("/metrics/distribution")
+def score_distribution():
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT
+                (FLOOR(fraud_score * 10) / 10)::numeric(3,1) AS bucket,
+                COUNT(*) AS count
+            FROM transactions
+            GROUP BY bucket
+            ORDER BY bucket
+        """)
+        rows = cur.fetchall()
+    conn.close()
+    buckets = {f"{i/10:.1f}": 0 for i in range(10)}
+    for r in rows:
+        buckets[f"{float(r[0]):.1f}"] = int(r[1])
+    return {"distribution": [{"bucket": k, "count": v} for k, v in buckets.items()]}
 
 @app.get("/transactions/fraud")
 def fraud_alerts(limit: int = 20):
