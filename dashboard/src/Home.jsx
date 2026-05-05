@@ -6,8 +6,15 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 // ── Animated counter ──────────────────────────────────────────────────────────
 function useCountUp(target, duration = 1800) {
   const [value, setValue] = useState(0)
+  const animated = useRef(false)
+
   useEffect(() => {
     if (!target) return
+    if (animated.current) {
+      setValue(target)
+      return
+    }
+    animated.current = true
     const start = Date.now()
     const timer = setInterval(() => {
       const p = Math.min((Date.now() - start) / duration, 1)
