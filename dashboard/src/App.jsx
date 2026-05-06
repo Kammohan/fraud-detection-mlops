@@ -225,88 +225,136 @@ export default function App() {
 
         {/* Transaction feed */}
         <div className="lg:col-span-2 bg-slate-900 rounded-xl border border-slate-800 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-            <div>
+          <div className="px-4 pt-4 pb-3 border-b border-slate-800">
+            <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-semibold text-white">Live Transaction Feed</p>
-              <p className="text-xs text-slate-500 mt-0.5">Every row scored in real time · stored to audit ledger</p>
+              <span className="text-xs text-slate-600">{transactions.length} most recent</span>
             </div>
-            <span className="text-xs text-slate-600">{transactions.length} shown</span>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Every credit card transaction streamed from Kafka is scored by the XGBoost model in real time.
+              The <span className="text-slate-300 font-medium">AI Risk Score</span> is the model's confidence (0–1) that the transaction is fraudulent.
+              Anything above <span className="text-red-400 font-medium">0.85</span> is automatically flagged.
+            </p>
           </div>
-          <div className="grid grid-cols-[1fr_80px_72px_64px_60px] text-xs text-slate-600 px-4 py-2 border-b border-slate-800/60">
-            <span>TX ID</span><span className="text-right">Amount</span><span className="text-right">Score</span><span className="text-right">Status</span><span className="text-right">When</span>
+
+          {/* Legend */}
+          <div className="flex items-center gap-4 px-4 py-2 border-b border-slate-800/60 bg-slate-800/20">
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              Legitimate — score below 0.85
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              </span>
+              Flagged as fraud — score above 0.85
+            </div>
           </div>
-          <div className="overflow-y-auto max-h-[420px] flex flex-col gap-1 p-2">
+
+          <div className="grid grid-cols-[1fr_90px_140px_70px_64px] text-xs text-slate-600 px-4 py-2 border-b border-slate-800/40">
+            <span>Transaction ID</span>
+            <span className="text-right">Amount</span>
+            <span className="text-center">AI Risk Score</span>
+            <span className="text-center">Result</span>
+            <span className="text-right">Time</span>
+          </div>
+
+          <div className="overflow-y-auto max-h-[400px] flex flex-col gap-1 p-2">
             {transactions.length === 0 ? (
               <p className="text-slate-600 text-sm text-center py-10">Waiting for transactions…</p>
-            ) : transactions.map(tx => (
-              <div key={tx.transaction_id}
-                className={`grid grid-cols-[1fr_80px_72px_64px_60px] items-center px-3 py-2 rounded-lg text-sm
-                  ${tx.flagged
-                    ? 'bg-red-950/50 border border-red-500/20'
-                    : 'bg-slate-800/40 border border-transparent hover:border-slate-700/40'}`}>
-                <div className="flex items-center gap-2 min-w-0">
-                  {tx.flagged && (
-                    <span className="relative flex h-1.5 w-1.5 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
-                    </span>
-                  )}
-                  <span className="font-mono text-slate-400 truncate text-xs">{tx.transaction_id.slice(0, 12)}</span>
+            ) : transactions.map(tx => {
+              const score = Number(tx.fraud_score)
+              const riskColor = tx.flagged ? 'text-red-400' : score > 0.5 ? 'text-orange-400' : 'text-slate-500'
+              const barColor  = tx.flagged ? 'bg-red-500' : score > 0.5 ? 'bg-orange-400' : 'bg-emerald-500/40'
+              return (
+                <div key={tx.transaction_id}
+                  className={`grid grid-cols-[1fr_90px_140px_70px_64px] items-center px-3 py-2 rounded-lg text-sm
+                    ${tx.flagged
+                      ? 'bg-red-950/50 border border-red-500/20'
+                      : 'bg-slate-800/40 border border-transparent hover:border-slate-700/40'}`}>
+
+                  <div className="flex items-center gap-2 min-w-0">
+                    {tx.flagged && (
+                      <span className="relative flex h-1.5 w-1.5 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+                      </span>
+                    )}
+                    <span className="font-mono text-slate-400 truncate text-xs">TXN-{tx.transaction_id.slice(0, 8).toUpperCase()}</span>
+                  </div>
+
+                  <span className="text-slate-300 text-right text-xs font-medium">${Number(tx.amount).toFixed(2)}</span>
+
+                  <div className="flex items-center gap-2 px-2">
+                    <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${score * 100}%` }} />
+                    </div>
+                    <span className={`font-mono text-xs w-10 text-right shrink-0 ${riskColor}`}>{score.toFixed(3)}</span>
+                  </div>
+
+                  <span className={`text-center text-xs font-bold ${tx.flagged ? 'text-red-400' : 'text-emerald-500'}`}>
+                    {tx.flagged ? 'FRAUD' : 'CLEAR'}
+                  </span>
+                  <span className="text-right text-xs text-slate-600">{timeAgo(tx.timestamp)}</span>
                 </div>
-                <span className="text-slate-300 text-right text-xs">${Number(tx.amount).toFixed(2)}</span>
-                <span className={`text-right font-mono text-xs ${tx.flagged ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
-                  {Number(tx.fraud_score).toFixed(4)}
-                </span>
-                <span className={`text-right text-xs font-semibold ${tx.flagged ? 'text-red-400' : 'text-emerald-500'}`}>
-                  {tx.flagged ? 'FRAUD' : 'OK'}
-                </span>
-                <span className="text-right text-xs text-slate-600">{timeAgo(tx.timestamp)}</span>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
         {/* Fraud alerts */}
         <div className="bg-slate-900 rounded-xl border border-red-900/30 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-red-900/30">
-            <div>
+          <div className="px-4 pt-4 pb-3 border-b border-red-900/30">
+            <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-semibold text-red-400">Fraud Alerts</p>
-              <p className="text-xs text-slate-500 mt-0.5">score &gt; 0.85 · auto-flagged</p>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${alerts.length > 0 ? 'bg-red-500/20 text-red-400' : 'text-slate-600'}`}>
+                {alerts.length} detected
+              </span>
             </div>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${alerts.length > 0 ? 'bg-red-500/20 text-red-400' : 'text-slate-600'}`}>
-              {alerts.length} recent
-            </span>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Transactions where the model returned a fraud probability <span className="text-red-400 font-medium">above 0.85</span>.
+              These would trigger a hold or manual review in a real card network.
+            </p>
           </div>
-          <div className="overflow-y-auto max-h-[420px] flex flex-col gap-1.5 p-2">
+
+          <div className="overflow-y-auto max-h-[460px] flex flex-col gap-2 p-2">
             {alerts.length === 0 ? (
               <p className="text-slate-600 text-sm text-center py-10">No fraud detected yet</p>
-            ) : alerts.map(a => (
-              <div key={a.transaction_id}
-                className="rounded-lg bg-red-950/60 border border-red-500/30 p-3 slide-in">
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="relative flex h-2 w-2 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-                    </span>
-                    <span className="font-mono text-red-300 text-xs">{a.transaction_id.slice(0,12)}</span>
+            ) : alerts.map(a => {
+              const score = Number(a.fraud_score)
+              const confidence = score >= 0.99 ? 'Extremely High' : score >= 0.95 ? 'Very High' : 'High'
+              return (
+                <div key={a.transaction_id} className="rounded-lg bg-red-950/60 border border-red-500/30 p-3 slide-in">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                      </span>
+                      <span className="font-mono text-red-300 text-xs font-semibold">TXN-{a.transaction_id.slice(0,8).toUpperCase()}</span>
+                    </div>
+                    <span className="text-xs text-slate-500">{timeAgo(a.timestamp)}</span>
                   </div>
-                  <span className="text-xs text-slate-500">{timeAgo(a.timestamp)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-white font-semibold">${Number(a.amount).toFixed(2)}</span>
-                  <div className="text-right">
-                    <span className="text-red-400 font-bold font-mono text-sm">{Number(a.fraud_score).toFixed(4)}</span>
-                    <div className="w-24 h-1.5 bg-slate-800 rounded-full mt-1 overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full"
-                        style={{ width: `${Number(a.fraud_score) * 100}%` }}
-                      />
+
+                  <div className="flex items-end justify-between mb-2">
+                    <div>
+                      <p className="text-xs text-slate-500 mb-0.5">Transaction Amount</p>
+                      <p className="text-white font-bold text-lg">${Number(a.amount).toFixed(2)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-slate-500 mb-0.5">Model Confidence</p>
+                      <p className="text-red-400 font-bold font-mono">{(score * 100).toFixed(1)}%</p>
                     </div>
                   </div>
+
+                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-1.5">
+                    <div className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full" style={{ width: `${score * 100}%` }} />
+                  </div>
+                  <p className="text-xs text-red-400/70">{confidence} confidence · auto-flagged for review</p>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
