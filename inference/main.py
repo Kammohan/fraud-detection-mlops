@@ -41,6 +41,8 @@ def get_conn():
         user=DB_USER, password=DB_PASS,
     )
 
+RETENTION_HOURS = int(os.getenv("RETENTION_HOURS", "24"))
+
 def init_db():
     conn = get_conn()
     with conn:
@@ -56,8 +58,27 @@ def init_db():
                     created_at      TIMESTAMPTZ DEFAULT now()
                 )
             """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_created_at ON transactions(created_at)")
     conn.close()
     print("[INFO] DB schema ready", flush=True)
+
+def purge_old_rows():
+    while True:
+        time.sleep(300)  # run every 5 minutes
+        try:
+            conn = get_conn()
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "DELETE FROM transactions WHERE created_at < NOW() - INTERVAL '%s hours'",
+                        (RETENTION_HOURS,)
+                    )
+                    deleted = cur.rowcount
+            conn.close()
+            if deleted:
+                print(f"[INFO] Purged {deleted:,} rows older than {RETENTION_HOURS}h", flush=True)
+        except Exception as e:
+            print(f"[ERROR] Purge failed: {e}", flush=True)
 
 def insert_transaction(tx_id, amount, score, flagged, ts):
     conn = get_conn()
@@ -133,8 +154,8 @@ app.add_middleware(
 @app.on_event("startup")
 def startup():
     init_db()
-    t = threading.Thread(target=consume_loop, daemon=True)
-    t.start()
+    threading.Thread(target=consume_loop, daemon=True).start()
+    threading.Thread(target=purge_old_rows, daemon=True).start()
 
 @app.get("/health")
 def health():
