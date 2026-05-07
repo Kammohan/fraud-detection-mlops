@@ -298,9 +298,9 @@ export default function Home() {
         </div>
         <div className="mt-6 rounded-xl border border-slate-800 bg-slate-900/40 px-6 py-5 text-sm text-slate-400 leading-relaxed">
           <span className="text-slate-300 font-semibold">Features: </span>
-          V1–V28 are principal components from PCA applied to the original transaction data — anonymized for privacy.
-          Time (seconds from first transaction) and Amount are the only raw features. Amount is standardized with
-          <span className="font-mono text-slate-300"> StandardScaler</span> before inference to match training distribution.
+          V1–V28 were produced by the dataset publisher (a European bank) using PCA on the original transaction features before public release — to protect cardholder privacy. This pipeline consumes them as plain numerical inputs; no PCA is performed here.
+          Time and Amount are the only non-transformed features. Amount is standardized with
+          <span className="font-mono text-slate-300"> StandardScaler</span> at inference time to match the training distribution.
         </div>
       </section>
 

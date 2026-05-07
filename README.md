@@ -103,8 +103,8 @@ Live monitoring interface.
 **Dataset:** [Kaggle Credit Card Fraud Detection](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) — 284,807 transactions, 492 fraud cases (0.173%)
 
 **Features:**
-- `V1`–`V28` — principal components from PCA applied to the original transaction features (anonymized for privacy). This dimensionality reduction is standard practice when working with sensitive financial data.
-- `Amount` — transaction value in euros, standardized with `StandardScaler`
+- `V1`–`V28` — the dataset publisher (a European bank) applied PCA to the original transaction features before releasing the data, to protect cardholder privacy. This pipeline consumes those pre-transformed components as plain numerical inputs — no PCA is performed here.
+- `Amount` — transaction value in euros, standardized with `StandardScaler` at inference time to match the training distribution
 - `Time` — seconds elapsed from the first transaction in the dataset, standardized
 
 **The class imbalance problem:**
