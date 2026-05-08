@@ -8,8 +8,6 @@ A production-grade microservices system that detects credit card fraud in real t
 
 ## What This Demonstrates
 
-This project mirrors how real FinTech fraud teams operate:
-
 - **Event-driven architecture** — services communicate through Kafka, not direct API calls, so each component is independently deployable and failure-isolated
 - **ML in production** — a trained model served behind an API, not a notebook. Handles class imbalance, feature scaling, and threshold calibration the way a real ML platform team would
 - **Audit compliance** — every model decision is written to an append-only PostgreSQL ledger with a timestamp, which is a regulatory requirement in financial services
