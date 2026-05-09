@@ -4,6 +4,7 @@ import pickle
 import threading
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pandas as pd
 import psycopg2
@@ -17,6 +18,7 @@ BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
 TOPIC             = os.getenv("KAFKA_TOPIC", "live-transactions")
 GROUP_ID          = os.getenv("KAFKA_GROUP_ID", "inference-engine")
 MODEL_PATH        = os.getenv("MODEL_PATH", "/app/model.pkl")
+METRICS_PATH      = os.getenv("METRICS_PATH", "/app/model_metrics.json")
 FRAUD_THRESHOLD   = float(os.getenv("FRAUD_THRESHOLD", "0.85"))
 
 DB_HOST = os.getenv("POSTGRES_HOST", "postgres")
@@ -235,6 +237,13 @@ def score_distribution():
     for r in rows:
         buckets[f"{float(r[0]):.1f}"] = int(r[1])
     return {"distribution": [{"bucket": k, "count": v} for k, v in buckets.items()]}
+
+@app.get("/model/metrics")
+def model_metrics():
+    p = Path(METRICS_PATH)
+    if not p.exists():
+        return {}
+    return json.loads(p.read_text())
 
 @app.get("/transactions/fraud")
 def fraud_alerts(limit: int = 20):

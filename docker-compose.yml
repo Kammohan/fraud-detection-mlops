@@ -68,6 +68,7 @@ services:
       KAFKA_TOPIC: live-transactions
       KAFKA_GROUP_ID: inference-engine
       MODEL_PATH: /app/model.pkl
+      METRICS_PATH: /app/model_metrics.json
       FRAUD_THRESHOLD: 0.85
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
@@ -76,6 +77,7 @@ services:
       POSTGRES_PASSWORD: fraud
     volumes:
       - ./model.pkl:/app/model.pkl:ro
+      - ./model_metrics.json:/app/model_metrics.json:ro
     networks:
       - kafka-net
     restart: on-failure

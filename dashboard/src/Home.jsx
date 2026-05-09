@@ -182,6 +182,10 @@ export default function Home() {
               className="text-sm text-slate-400 hover:text-white transition-colors hidden sm:inline">
               GitHub
             </a>
+            <button onClick={() => navigate('/model')}
+              className="text-sm text-slate-400 hover:text-white transition-colors hidden sm:inline">
+              Model Insights
+            </button>
             <button onClick={() => navigate('/dashboard')}
               className="text-sm bg-white text-slate-950 font-bold px-4 py-1.5 rounded-full hover:bg-slate-200 transition-colors">
               Live Dashboard →

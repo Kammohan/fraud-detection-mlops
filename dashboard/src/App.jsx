@@ -100,9 +100,14 @@ export default function App() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <button onClick={() => navigate('/')} className="text-xs text-slate-600 hover:text-slate-400 transition-colors mb-1 flex items-center gap-1">
-            ← Overview
-          </button>
+          <div className="flex items-center gap-3 mb-1">
+            <button onClick={() => navigate('/')} className="text-xs text-slate-600 hover:text-slate-400 transition-colors flex items-center gap-1">
+              ← Overview
+            </button>
+            <button onClick={() => navigate('/model')} className="text-xs text-slate-600 hover:text-slate-400 transition-colors flex items-center gap-1">
+              Model Insights →
+            </button>
+          </div>
           <h1 className="text-xl font-bold text-white tracking-tight">Live Inference Monitor</h1>
           <p className="text-slate-500 text-xs mt-0.5">XGBoost · 30 features · threshold 0.85 · 50 tx/sec</p>
         </div>
