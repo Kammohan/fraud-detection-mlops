@@ -18,7 +18,8 @@ function useCountUp(target, duration = 1800) {
     const start = Date.now()
     const timer = setInterval(() => {
       const p = Math.min((Date.now() - start) / duration, 1)
-      setValue(Math.floor((1 - Math.pow(1 - p, 3)) * target))
+      const raw = (1 - Math.pow(1 - p, 3)) * target
+      setValue(target >= 1 ? Math.floor(raw) : raw)
       if (p >= 1) clearInterval(timer)
     }, 16)
     return () => clearInterval(timer)
