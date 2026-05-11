@@ -179,7 +179,7 @@ export default function App() {
               <BarChart data={distribution} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                 <XAxis dataKey="bucket" tick={{ fill: '#475569', fontSize: 9 }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fill: '#475569', fontSize: 9 }} tickLine={false} axisLine={false} tickFormatter={v => v > 999 ? `${(v/1000).toFixed(0)}k` : v} />
+                <YAxis scale="log" domain={[1, 'auto']} allowDataOverflow tick={{ fill: '#475569', fontSize: 9 }} tickLine={false} axisLine={false} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
                 <Tooltip content={<DistTooltip />} />
                 <Bar dataKey="count" radius={[3, 3, 0, 0]}>
                   {distribution.map((_, i) => (
