@@ -4,7 +4,7 @@ A production-grade microservices system that detects credit card fraud in real t
 
 **Live metrics as of last run:** 96,000+ transactions scored · 162 fraud cases flagged · 0.168% fraud rate · ROC-AUC 0.9747
 
-https://github.com/Kammohan/fraud-detection-mlops/raw/main/demo.mp4
+https://github.com/user-attachments/assets/5dc1c72f-95cf-45c3-b257-d8a752a559a9
 
 ---
 
