@@ -17,29 +17,20 @@ A production-grade microservices system that detects credit card fraud in real t
 
 ## Architecture
 
-```
-creditcard.csv
-     │
-     ▼
-┌─────────────┐     JSON messages      ┌─────────────┐    scored results    ┌──────────────┐
-│  Producer   │ ──────────────────────▶│    Kafka    │─────────────────────▶│  Inference   │
-│  (Python)   │    50 transactions/sec │  (KRaft)    │  consumer group poll │  (FastAPI +  │
-└─────────────┘                        └─────────────┘                      │   XGBoost)   │
-                                                                             └──────┬───────┘
-                                                                                    │
-                                                                         writes every result
-                                                                                    │
-                                                                             ┌──────▼───────┐
-                                                                             │  PostgreSQL  │
-                                                                             │ (audit ledger│
-                                                                             └──────┬───────┘
-                                                                                    │
-                                                                           REST API (FastAPI)
-                                                                                    │
-                                                                             ┌──────▼───────┐
-                                                                             │   Dashboard  │
-                                                                             │   (React)    │
-                                                                             └──────────────┘
+```mermaid
+flowchart LR
+    CSV[("creditcard.csv\n284,807 rows")]
+    P["Producer\nPython · 50 tx/sec"]
+    K[["Kafka\nKRaft · 3 partitions"]]
+    I["Inference Engine\nFastAPI + XGBoost"]
+    DB[("PostgreSQL\naudit ledger")]
+    D["Dashboard\nReact · 1s poll"]
+
+    CSV --> P
+    P -->|"JSON messages"| K
+    K -->|"consumer group poll"| I
+    I -->|"writes every result"| DB
+    DB -->|"REST API"| D
 ```
 
 ---
@@ -160,8 +151,8 @@ shutil.copy(f'{path}/creditcard.csv', 'data/creditcard.csv')
 pip install xgboost scikit-learn pandas
 python3 train.py
 
-# Start all 5 containers
-docker compose up -d
+# Build images and start all 5 containers
+docker compose up --build -d
 
 # Open the dashboard
 open http://localhost:3000
