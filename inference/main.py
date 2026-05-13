@@ -2,6 +2,7 @@ import json
 import os
 import pickle
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -9,6 +10,7 @@ from pathlib import Path
 import pandas as pd
 import psycopg2
 import psycopg2.extras
+import psycopg2.pool
 from confluent_kafka import Consumer, KafkaError
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,12 +38,22 @@ model   = bundle["model"]
 scaler  = bundle["scaler"]
 print(f"[INFO] Model loaded from {MODEL_PATH}", flush=True)
 
-# ── DB helpers ────────────────────────────────────────────────────────────────
-def get_conn():
-    return psycopg2.connect(
+# ── DB connection pool ────────────────────────────────────────────────────────
+_pool: psycopg2.pool.ThreadedConnectionPool = None
+
+def init_pool():
+    global _pool
+    _pool = psycopg2.pool.ThreadedConnectionPool(
+        minconn=2, maxconn=10,
         host=DB_HOST, port=DB_PORT, dbname=DB_NAME,
         user=DB_USER, password=DB_PASS,
     )
+
+def get_conn():
+    return _pool.getconn()
+
+def put_conn(conn):
+    _pool.putconn(conn)
 
 RETENTION_HOURS = int(os.getenv("RETENTION_HOURS", "24"))
 
@@ -61,7 +73,7 @@ def init_db():
                 )
             """)
             cur.execute("CREATE INDEX IF NOT EXISTS idx_created_at ON transactions(created_at)")
-    conn.close()
+    put_conn(conn)
     print("[INFO] DB schema ready", flush=True)
 
 def purge_old_rows():
@@ -76,7 +88,7 @@ def purge_old_rows():
                         (RETENTION_HOURS,)
                     )
                     deleted = cur.rowcount
-            conn.close()
+            put_conn(conn)
             if deleted:
                 print(f"[INFO] Purged {deleted:,} rows older than {RETENTION_HOURS}h", flush=True)
         except Exception as e:
@@ -92,7 +104,7 @@ def insert_transaction(tx_id, amount, score, flagged, ts):
                    VALUES (%s, %s, %s, %s, %s)""",
                 (tx_id, amount, score, flagged, ts),
             )
-    conn.close()
+    put_conn(conn)
 
 # ── Inference ─────────────────────────────────────────────────────────────────
 def score(row: dict) -> float:
@@ -155,6 +167,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup():
+    init_pool()
     init_db()
     threading.Thread(target=consume_loop, daemon=True).start()
     threading.Thread(target=purge_old_rows, daemon=True).start()
@@ -166,16 +179,18 @@ def health():
 @app.get("/metrics")
 def metrics():
     conn = get_conn()
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT
-                COUNT(*)                            AS total_processed,
-                SUM(flagged::int)                   AS total_flagged,
-                COALESCE(AVG(fraud_score), 0)       AS avg_fraud_score
-            FROM transactions
-        """)
-        row = cur.fetchone()
-    conn.close()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT
+                    COUNT(*)                            AS total_processed,
+                    SUM(flagged::int)                   AS total_flagged,
+                    COALESCE(AVG(fraud_score), 0)       AS avg_fraud_score
+                FROM transactions
+            """)
+            row = cur.fetchone()
+    finally:
+        put_conn(conn)
     processed = int(row[0])
     flagged   = int(row[1]) if row[1] else 0
     avg_score = float(row[2])
@@ -189,50 +204,56 @@ def metrics():
 @app.get("/transactions/recent")
 def recent_transactions(limit: int = 50):
     conn = get_conn()
-    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-        cur.execute(
-            """SELECT transaction_id, amount, fraud_score, flagged, timestamp
-               FROM transactions
-               ORDER BY created_at DESC
-               LIMIT %s""",
-            (min(limit, 200),),
-        )
-        rows = cur.fetchall()
-    conn.close()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """SELECT transaction_id, amount, fraud_score, flagged, timestamp
+                   FROM transactions
+                   ORDER BY created_at DESC
+                   LIMIT %s""",
+                (min(limit, 200),),
+            )
+            rows = cur.fetchall()
+    finally:
+        put_conn(conn)
     return {"transactions": [dict(r) for r in rows]}
 
 @app.get("/metrics/history")
 def metrics_history():
     conn = get_conn()
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT
-                to_char(date_trunc('minute', created_at), 'HH24:MI') AS minute,
-                COUNT(*)                  AS count,
-                SUM(flagged::int)         AS flagged
-            FROM transactions
-            WHERE created_at > NOW() - INTERVAL '20 minutes'
-            GROUP BY date_trunc('minute', created_at), minute
-            ORDER BY date_trunc('minute', created_at)
-        """)
-        rows = cur.fetchall()
-    conn.close()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT
+                    to_char(date_trunc('minute', created_at), 'HH24:MI') AS minute,
+                    COUNT(*)                  AS count,
+                    SUM(flagged::int)         AS flagged
+                FROM transactions
+                WHERE created_at > NOW() - INTERVAL '20 minutes'
+                GROUP BY date_trunc('minute', created_at), minute
+                ORDER BY date_trunc('minute', created_at)
+            """)
+            rows = cur.fetchall()
+    finally:
+        put_conn(conn)
     return {"history": [{"minute": r[0], "count": int(r[1]), "flagged": int(r[2])} for r in rows]}
 
 @app.get("/metrics/distribution")
 def score_distribution():
     conn = get_conn()
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT
-                (FLOOR(fraud_score * 10) / 10)::numeric(3,1) AS bucket,
-                COUNT(*) AS count
-            FROM transactions
-            GROUP BY bucket
-            ORDER BY bucket
-        """)
-        rows = cur.fetchall()
-    conn.close()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT
+                    (FLOOR(fraud_score * 10) / 10)::numeric(3,1) AS bucket,
+                    COUNT(*) AS count
+                FROM transactions
+                GROUP BY bucket
+                ORDER BY bucket
+            """)
+            rows = cur.fetchall()
+    finally:
+        put_conn(conn)
     buckets = {f"{i/10:.1f}": 0 for i in range(10)}
     for r in rows:
         buckets[f"{float(r[0]):.1f}"] = int(r[1])
@@ -248,15 +269,17 @@ def model_metrics():
 @app.get("/transactions/fraud")
 def fraud_alerts(limit: int = 20):
     conn = get_conn()
-    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-        cur.execute(
-            """SELECT transaction_id, amount, fraud_score, timestamp
-               FROM transactions
-               WHERE flagged = true
-               ORDER BY created_at DESC
-               LIMIT %s""",
-            (min(limit, 100),),
-        )
-        rows = cur.fetchall()
-    conn.close()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """SELECT transaction_id, amount, fraud_score, timestamp
+                   FROM transactions
+                   WHERE flagged = true
+                   ORDER BY created_at DESC
+                   LIMIT %s""",
+                (min(limit, 100),),
+            )
+            rows = cur.fetchall()
+    finally:
+        put_conn(conn)
     return {"alerts": [dict(r) for r in rows]}
