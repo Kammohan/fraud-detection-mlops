@@ -2,6 +2,10 @@
 
 A production-grade microservices system that detects credit card fraud in real time. Transactions stream through Apache Kafka at 50 per second, get scored by a pre-trained XGBoost model, and results are persisted to PostgreSQL and surfaced on a live React dashboard — all running across 5 Docker containers with a single command.
 
+**Live metrics as of last run:** 96,000+ transactions scored · 162 fraud cases flagged · 0.168% fraud rate · ROC-AUC 0.9747
+
+https://github.com/Kammohan/fraud-detection-mlops/raw/main/demo.mp4
+
 ---
 
 ## What This Demonstrates
