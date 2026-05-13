@@ -45,6 +45,8 @@ services:
       POSTGRES_PASSWORD: fraud
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
     networks:
       - kafka-net
     healthcheck:
